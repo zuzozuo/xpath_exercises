@@ -1,0 +1,19 @@
+{
+  "name": "xpath",
+  "version": "1.0.0",
+  "description": "school project",
+  "main": "server.js",
+  "dependencies": {
+    "fs": "^0.0.1-security",
+    "querystring": "^0.2.0",
+    "xmldom": "^0.1.27",
+    "xpath": "^0.0.27"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "node server.js",
+    "start": "node server.js"
+  },
+  "author": "zuozuz",
+  "license": "ISC"
+}
