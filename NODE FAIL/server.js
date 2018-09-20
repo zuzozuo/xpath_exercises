@@ -6,25 +6,64 @@ var xpath = require('xpath');
 var xmlDom = require('xmldom').DOMParser;
 var PORT = 3000;
 
-function findWOJ(req, res) {
-    fs.readFile('data/TERC.xml', 'utf-8', function (error, data) {
-        if (error) console.log(error)
-        var doc = new xmlDom().parseFromString(data)
-        var nodes = xpath.select('//NAZWA|//WOJ|//NAZWA_DOD', doc)
-
-        for (var i = 0; i < nodes.length; i++) {
-            console.log(nodes[i].localName + ": " + nodes[i].firstChild.data)
-        }
+function getData(req, res) {
+    var allData = "";
+    req.on("data", function(data) {
+        allData += data;
     })
 
-    res.end("Blep");
+    req.on("end", function(data) {
+        var parsedData = JSON.parse(allData)
+        console.log(parsedData)
+        switch (parsedData) {
+            case 1:
+                findWOJ(req, res);
+                break;
+
+        }
+
+    })
 }
 
-http.createServer(function (req, res) {
+// funkcja znajdzWOJTKA
+function findWOJ(req, res) {
+    fs.readFile('data/TERC.xml', 'utf-8', function(error, data) {
+
+        // obsluga bledow jakby sie xml nie wczytal zwraca blad HTTP 500
+        if (error) {
+            // console.log(error);
+            res.statusCode = 500;
+            res.statusMessage = "Internal Server Error";
+            res.end();
+            return;
+        }
+
+        // parsowanie xml
+        var doc = new xmlDom().parseFromString(data);
+        var nodes = xpath.select("/teryt/catalog/row[NAZWA_DOD='województwo']/NAZWA", doc);
+        var data = [];
+
+        // sklejanie tablicy z danymi
+        for (var i = 0; i < nodes.length; i++) {
+            data.push({ name: nodes[i].firstChild.data });
+            // data.push([i, nodes[i].localName, nodes[i].firstChild.data]);
+        }
+
+        // odsylamy jsona z tablica
+        res.writeHead(200, {
+            'Content-Type': 'application/json'
+        });
+        res.write(JSON.stringify(data));
+        res.end();
+    });
+}
+
+http.createServer(function(req, res) {
     var url = req.url,
         ext = path.extname(url),
-        contentType;
+        contentType = "text/html"; // domyslny content type
 
+    // rozpoznanie content type
     if (ext == ".js") {
         contentType = "application/javascript";
     } else if (ext == ".css") {
@@ -39,32 +78,37 @@ http.createServer(function (req, res) {
         contentType = "application/font-woff";
     }
 
+    // jezeli "/" to kieruje na index
     if (url == "/") {
-        switch (req.method) {
-            case "GET":
-                fs.readFile("static/index.html", function (error, data) {
-                    res.writeHead(200, {
-                        'Content-Type': 'text/html'
-                    });
-                    res.write(data);
-                    res.end();
-                })
-                break;
-            case "POST":
-                findWOJ(req, res);
-                break;
-        }
-    } else {
-        fs.readFile("static" + url, function (error, data) {
+        url = "/index.html";
+    }
+
+    // obsluga getow
+    if (req.method == "GET") {
+        // console.log("GET " + url);
+        fs.readFile("static" + url, function(error, data) {
+
+            // jezeli nie ma pliku to zwraca HTTP 404
+            if (error) {
+                res.statusCode = 404;
+                res.statusMessage = "Not found";
+                res.end();
+                return;
+            }
+
+            // dane ciurkiem
             res.writeHead(200, {
                 'Content-Type': contentType
             });
             res.write(data);
             res.end();
-        })
+        });
+
+    } else if (req.method == "POST") { // obsluga postow
+        getData(req, res);
+
     }
 
-}).listen(PORT)
+}).listen(PORT);
 
-
-console.log("Coś tam działa");
+console.log("http://localhost:" + PORT);
